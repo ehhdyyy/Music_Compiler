@@ -1,0 +1,49 @@
+compose Scale
+
+// Plays an ascending C major scale, then a short melody using a helper function
+
+func int nextPitch(int p, int step) {
+    return p + step;
+}
+
+// Semitones from scale degree 'degree' to the next one in a major scale.
+// Pattern: W W H W W W H  (H = 1 semitone: E->F and B->C in C major)
+func int majorStep(int degree) {
+    if (degree == 2 || degree == 6) {
+        return 1;
+    }
+    return 2;
+}
+
+func void phrase(int root, int count) {
+    int i = 0;
+    while (i < count) {
+        if (i % 2 == 0) {
+            play(root + i, 1);
+        } else {
+            play(root + i + 4, 2);
+        }
+        i = i + 1;
+    }
+}
+
+main {
+    tempo(120);
+    int pitch = 60;
+    bool ascending = true;
+
+    int n = 0;
+    while (n < 8) {
+        play(pitch, 1);
+        if (ascending) {
+            pitch = nextPitch(pitch, majorStep(n));
+        } else {
+            pitch = nextPitch(pitch, -majorStep(6 - n));
+        }
+        n = n + 1;
+    }
+
+    phrase(72, 4);
+    rest(2);
+    play(60 + 7, 4);
+}

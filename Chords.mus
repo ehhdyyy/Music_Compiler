@@ -1,0 +1,42 @@
+compose Chords
+
+// Chord progressions using the chord(root, quality, beats) builtin.
+// Quality codes: 0 = major, 1 = minor, 2 = diminished, 3 = augmented,
+//                4 = dominant 7th, 5 = major 7th, 6 = minor 7th
+
+// I - V - vi - IV in the key whose tonic is 'key'
+func void popProgression(int key, int beats) {
+    chord(key,     0, beats);   // I
+    chord(key + 7, 0, beats);   // V
+    chord(key + 9, 1, beats);   // vi
+    chord(key + 5, 0, beats);   // IV
+}
+
+// ii7 - V7 - Imaj7 jazz turnaround
+func void twoFiveOne(int key) {
+    chord(key + 2, 6, 2);       // ii7
+    chord(key + 7, 4, 2);       // V7
+    chord(key,     5, 4);       // Imaj7
+}
+
+main {
+    tempo(100);
+    instrument(0);              // acoustic grand piano
+
+    // Play the pop progression in C, then in G
+    popProgression(60, 2);
+    popProgression(55, 2);
+    rest(1);
+
+    // Every chord quality on C, one after another
+    int q = 0;
+    while (q < 7) {
+        chord(60, q, 1);
+        q = q + 1;
+    }
+    rest(1);
+
+    // ii-V-I turnaround, then a final melody note
+    twoFiveOne(60);
+    play(72, 2);
+}
