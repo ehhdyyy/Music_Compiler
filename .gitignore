@@ -3,3 +3,4 @@ src/frontend/Music*.java
 src/frontend/*.interp
 src/frontend/*.tokens
 gen/
+.vscode
