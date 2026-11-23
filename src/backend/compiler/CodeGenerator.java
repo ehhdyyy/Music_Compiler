@@ -116,13 +116,18 @@ public class CodeGenerator extends MusicBaseVisitor<Void>
         className = ctx.ID().getText();
 
         // Pass 1: record every function signature so calls can come before declarations.
-        for (FuncDeclContext f : ctx.funcDecl()) {
-            String name = f.ID().getText();
-            if (functions.containsKey(name)) { error(f, "function '" + name + "' already defined"); continue; }
-            List<String> params = new ArrayList<>();
-            if (f.paramList() != null)
-                for (ParamContext p : f.paramList().param()) params.add(p.type().getText());
-            functions.put(name, new FuncSig(name, className, params, f.retType().getText()));
+        for (TopLevelDeclContext t : ctx.topLevelDecl()) {
+            FuncDeclContext f = t.funcDecl();
+            SongDeclContext s = t.songDecl();
+            if (f != null)
+            {
+                String name = f.ID().getText();
+                if (functions.containsKey(name)) { error(f, "function '" + name + "' already defined"); continue; }
+                List<String> params = new ArrayList<>();
+                if (f.paramList() != null)
+                    for (ParamContext p : f.paramList().param()) params.add(p.type().getText());
+                functions.put(name, new FuncSig(name, className, params, f.retType().getText()));
+            }
         }
 
         emitter.directive(".class public " + className);
@@ -133,7 +138,16 @@ public class CodeGenerator extends MusicBaseVisitor<Void>
         emitter.emit("return");
         emitter.endMethod(1, 1);
 
-        for (FuncDeclContext f : ctx.funcDecl()) visit(f);
+        for (TopLevelDeclContext decl : ctx.topLevelDecl()) {
+            FuncDeclContext function = decl.funcDecl();
+            if (function != null) {
+                visit(function);
+            } else {
+                SongDeclContext song = decl.songDecl();
+                // Generate the song once song code generation is implemented,
+                // or report that song declarations aren't supported yet.
+            }
+        }
         visit(ctx.mainBlock());
         return null;
     }
@@ -296,12 +310,38 @@ public class CodeGenerator extends MusicBaseVisitor<Void>
         return null;
     }
 
+    @Override
+    public Void visitPlayStmt(PlayStmtContext ctx)
+    {
+        emitInvocation(ctx, "play", ctx.expr());
+        return null;
+    }
+
+    @Override
+    public Void visitTempoStmt(TempoStmtContext ctx)
+    {
+        emitInvocation(ctx, "tempo", List.of(ctx.expr()));
+        return null;
+    }
+
+    @Override
+    public Void visitRestStmt(RestStmtContext ctx)
+    {
+        emitInvocation(ctx, "rest", List.of(ctx.expr()));
+        return null;
+    }
+
     /** Push the arguments and invoke. Returns null (and emits nothing) on error. */
     private FuncSig emitCall(CallContext ctx)
     {
         String name = ctx.ID().getText();
-        FuncSig sig = functions.get(name);
         List<ExprContext> args = ctx.argList() == null ? List.of() : ctx.argList().expr();
+        return emitInvocation(ctx, name, args);
+    }
+
+    private FuncSig emitInvocation(ParserRuleContext ctx, String name, List<ExprContext> args)
+    {
+        FuncSig sig = functions.get(name);
         if (sig == null) { error(ctx, "undefined function '" + name + "'"); return null; }
         if (args.size() != sig.params.size()) {
             error(ctx, "'" + name + "' expects " + sig.params.size()

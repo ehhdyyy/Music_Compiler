@@ -3,11 +3,38 @@ grammar Music;
 // ---------- Parser rules ----------
 
 // A file starts with: compose <Name>   (Name becomes the output class)
-program   : 'compose' ID funcDecl* mainBlock EOF ;
+program   : 'compose' ID topLevelDecl* mainBlock EOF ;
 
+topLevelDecl : funcDecl | songDecl;
 funcDecl  : 'func' retType ID '(' paramList? ')' block ;
 retType   : type | 'void' ;
-type      : 'int' | 'bool' ;
+type      : 'int' 
+          | 'bool'
+          | 'Pitch'
+          | 'Duration'
+          | 'Note'
+          | 'Chord'
+          | 'Measure'
+          | 'Track'
+          | 'Song';
+
+songDecl : 'song' ID '{' songMember* '}';
+songMember : tempoStmt | trackDecl ;
+trackDecl : 'track' ID '{' musicEvent* '}';
+musicEvent : noteDecl
+           | chordDecl
+           | restStmt;
+
+tempoStmt : 'tempo' '(' expr ')' ';';
+noteDecl : 'note' ID '(' expr ',' expr ')' ;
+chordDecl : 'chord' ID '(' expr',' expr ')' ;
+restStmt : 'rest' '(' expr ')' ';';
+pitch : 'Pitch' '.' ID ;
+playStmt   : 'play' '(' expr ',' expr ')' ';' ;
+chord : 'Chord' '.' ID ;
+duration :
+ 'Duration' '.' ID ;
+
 paramList : param (',' param)* ;
 param     : type ID ;
 
@@ -20,6 +47,9 @@ stmt      : varDecl
           | whileStmt
           | returnStmt
           | callStmt
+          | playStmt
+          | tempoStmt
+          | restStmt
           ;
 
 varDecl    : type ID ('=' expr)? ';' ;
@@ -44,6 +74,9 @@ expr
   | expr '&&' expr                           # And
   | expr '||' expr                           # Or
   | call                                     # CallExpr
+  | pitch                                    # PitchExpr
+  | chord                                    # ChordExpr
+  | duration                                 # DurationExpr
   | ID                                       # Var
   | INT                                      # IntLit
   | ('true' | 'false')                       # BoolLit
