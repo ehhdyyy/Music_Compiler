@@ -19,21 +19,12 @@ type      : 'int'
           | 'Song';
 
 songDecl : 'song' ID '{' songMember* '}';
-songMember : tempoStmt | trackDecl ;
-trackDecl : 'track' ID '{' musicEvent* '}';
-musicEvent : noteDecl
-           | chordDecl
-           | restStmt;
+// Song members and track events are built-in calls: tempo(120); play(60, 1); chord(60, 0, 2); rest(1);
+songMember : callStmt | trackDecl ;
+trackDecl : 'track' ID '{' callStmt* '}';
 
-tempoStmt : 'tempo' '(' expr ')' ';';
-noteDecl : 'note' ID '(' expr ',' expr ')' ;
-chordDecl : 'chord' ID '(' expr',' expr ')' ;
-restStmt : 'rest' '(' expr ')' ';';
-pitch : 'Pitch' '.' ID ;
-playStmt   : 'play' '(' expr ',' expr ')' ';' ;
-chord : 'Chord' '.' ID ;
-duration :
- 'Duration' '.' ID ;
+// Named constants such as Pitch.C4, Chord.Major, Duration.Quarter
+enumLit : ('Pitch' | 'Chord' | 'Duration') '.' ID ;
 
 paramList : param (',' param)* ;
 param     : type ID ;
@@ -47,9 +38,6 @@ stmt      : varDecl
           | whileStmt
           | returnStmt
           | callStmt
-          | playStmt
-          | tempoStmt
-          | restStmt
           ;
 
 varDecl    : type ID ('=' expr)? ';' ;
@@ -74,9 +62,7 @@ expr
   | expr '&&' expr                           # And
   | expr '||' expr                           # Or
   | call                                     # CallExpr
-  | pitch                                    # PitchExpr
-  | chord                                    # ChordExpr
-  | duration                                 # DurationExpr
+  | enumLit                                  # EnumExpr
   | ID                                       # Var
   | INT                                      # IntLit
   | ('true' | 'false')                       # BoolLit

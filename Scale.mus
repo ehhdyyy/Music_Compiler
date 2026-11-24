@@ -1,6 +1,7 @@
 compose Scale
 
-// Plays an ascending C major scale, then a short melody using a helper function
+// Plays an ascending C major scale, then a short melody using a helper function,
+// then ends on a C major chord (named constants: Pitch.C4, Duration.Whole, Chord.Major)
 
 func int nextPitch(int p, int step) {
     return p + step;
@@ -29,12 +30,12 @@ func void phrase(int root, int count) {
 
 main {
     tempo(120);
-    int pitch = 60;
+    Pitch pitch = Pitch.C4;
     bool ascending = true;
 
     int n = 0;
     while (n < 8) {
-        play(pitch, 1);
+        play(pitch, Duration.Quarter);
         if (ascending) {
             pitch = nextPitch(pitch, majorStep(n));
         } else {
@@ -43,7 +44,8 @@ main {
         n = n + 1;
     }
 
-    phrase(72, 4);
-    rest(2);
-    play(60 + 7, 4);
+    phrase(Pitch.C5, 4);
+    rest(Duration.Half);
+    play(Pitch.C4 + 7, Duration.Whole);
+    chord(Pitch.C4, Chord.Major, Duration.Whole);
 }

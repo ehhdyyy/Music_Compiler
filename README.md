@@ -91,7 +91,9 @@ main {
 }
 ```
 
-- Types: `int`, `bool`, and `void` (return type only)
+- Types: `int`, `bool`, and `void` (return type only). `Pitch`, `Duration` and
+  `Chord` are accepted as `int`-compatible type names (see Named constants).
+  `Note`, `Measure`, `Track` and `Song` parse but are not implemented.
 - Statements: variable declaration, assignment, `if` / `else if` / `else`, `while`, `return`, function call
 - Operators: `+ - * / %`, `< <= > >= == !=`, `&& || !`, unary `-`
 - Comments: `// line` and `/* block */`
@@ -101,6 +103,7 @@ main {
 | Function | Meaning |
 |----------|---------|
 | `play(pitch, beats)` | Play a MIDI note (60 = middle C) for a number of beats |
+| `chord(root, quality, beats)` | Play all notes of a chord together. Quality codes 0 to 6: major, minor, dim, aug, dom7, maj7, min7 |
 | `rest(beats)` | Silence for a number of beats |
 | `tempo(bpm)` | Set the tempo in beats per minute (default 120) |
 | `instrument(n)` | Set the General MIDI instrument, 0 to 127 (0 = piano) |
@@ -110,19 +113,58 @@ main {
 Each built-in also prints a line such as `play C4 (60) for 1 beat(s)`, so you
 can check the output when no sound device is available.
 
+### Named constants
+
+`Pitch.<name>`, `Chord.<quality>` and `Duration.<name>` compile to int
+constants, so they work anywhere an `int` is expected:
+`play(Pitch.C4, Duration.Quarter);`
+
+- `Pitch`: a letter A to G, an optional `s` (sharp) or `b` (flat), and an
+  octave digit: `C4` = 60, `Fs3`, `Bb2`.
+- `Chord`: `Major Minor Dim Aug Dom7 Maj7 Min7` (codes 0 to 6).
+- `Duration`: `Whole` (4 beats), `Half` (2), `Quarter` (1).
+
+`song` and `track` blocks parse, but code generation reports
+"song declarations are not supported yet".
+
+### Type checking
+
+There are two kinds of value: `bool` and `int`. `Pitch`, `Duration`, `Chord`
+and the other music types count as `int`. The compiler reports an error for:
+
+- an initializer, assignment, `return` value or call argument of the wrong kind
+- an `if` or `while` condition that is not `bool`
+- arithmetic (`+ - * / %`) or comparison (`< <= > >=`) on a `bool`
+- `!`, `&&` or `||` on an `int`
+- `==` or `!=` between an `int` and a `bool`
+
+`Bad.mus` shows each error. `T.mus` exercises the named constants and `!`.
+
 ### Errors
 
 - Syntax errors are reported by ANTLR with a line and column.
 - Semantic errors stop code generation. These include: an undeclared
   variable, an undefined function, the wrong number of arguments, a variable
   declared twice in the same block, a `return` that does not match the
-  function type, and a void function used as a value.
+  function type, a void function used as a value, a type mismatch, an unknown
+  `Pitch`/`Chord`/`Duration` constant, an integer literal that is too large,
+  and a `song` declaration (not supported yet).
+
+### How the runtime fits in
+
+`MusicRuntime` is a small runtime library, like `libc` for C. The compiler
+does not use `javax.sound.midi`. `CodeGenerator` emits a static call such as
+`runtime.MusicRuntime.play(60, 1)`, and the runtime sends the MIDI messages to
+Java's built-in synthesizer and waits for the length of the note. The
+`.class` file is not self-contained: `build\classes` must be on the classpath
+when it runs. Playback is live, so no `.mid` file is written.
 
 ## Project layout
 
 ```
 Music.g4                              ANTLR grammar
-Scale.mus                             Sample program
+Scale.mus, Chords.mus, T.mus          Sample programs
+Bad.mus                               Programs with errors (should not compile)
 build.ps1                             Build-and-run script
 lib/                                  antlr and jasmin jars
 src/frontend/                         ANTLR-generated parser (created by build.ps1, not committed)
@@ -137,7 +179,7 @@ build/                                Generated .j and .class files (not committ
 ## Adding a new built-in function
 
 1. In the `CodeGenerator` constructor, add a line such as
-   `builtin("chord", "void", "int", "int");`
-2. Add a matching `public static void chord(int a, int b)` method to
+   `builtin("transpose", "void", "int", "int");`
+2. Add a matching `public static void transpose(int a, int b)` method to
    `src/runtime/MusicRuntime.java`.
 3. Run `.\build.ps1` again.

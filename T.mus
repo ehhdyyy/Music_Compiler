@@ -1,0 +1,11 @@
+compose T
+main {
+    tempo(240);
+    play(Pitch.C4, Duration.Quarter);
+    play(Pitch.Fs3, 1);
+    chord(Pitch.C4, Chord.Min7, Duration.Half);
+    bool quiet = 1 > 2;
+    if (!quiet) { print(1); } else { print(0); }
+    if (!false && (3 < 4)) { print(2); }
+    return;
+}
