@@ -101,6 +101,7 @@ main {
 | Function | Meaning |
 |----------|---------|
 | `play(pitch, beats)` | Play a MIDI note (60 = middle C) for a number of beats |
+| `chord(root, quality, beats)` | Play every note of a chord together (see the quality table below) |
 | `rest(beats)` | Silence for a number of beats |
 | `tempo(bpm)` | Set the tempo in beats per minute (default 120) |
 | `instrument(n)` | Set the General MIDI instrument, 0 to 127 (0 = piano) |
@@ -109,6 +110,29 @@ main {
 
 Each built-in also prints a line such as `play C4 (60) for 1 beat(s)`, so you
 can check the output when no sound device is available.
+
+Chord qualities (the second argument of `chord`). An unknown code plays a
+major chord. Notes are clamped to 0 to 127. `Chords.mus` is a sample program.
+
+| Code | Quality | Semitones above the root |
+|------|---------|--------------------------|
+| 0 | major | 0 4 7 |
+| 1 | minor | 0 3 7 |
+| 2 | diminished | 0 3 6 |
+| 3 | augmented | 0 4 8 |
+| 4 | dominant 7th | 0 4 7 10 |
+| 5 | major 7th | 0 4 7 11 |
+| 6 | minor 7th | 0 3 7 10 |
+
+### How the runtime fits in
+
+`MusicRuntime` is a small runtime library, like `libc` for C. The compiler
+does not use `javax.sound.midi`. `CodeGenerator` emits a static call such as
+`runtime.MusicRuntime.play(60, 1)`, and the runtime sends the MIDI messages
+(`noteOn`, `noteOff`, program change) to Java's built-in synthesizer, then
+waits for the length of the note. The `.class` file is not self-contained:
+`build\classes` must be on the classpath when it runs. The runtime plays the
+music live, so the compiler does not write a `.mid` file.
 
 ### Errors
 
@@ -122,7 +146,7 @@ can check the output when no sound device is available.
 
 ```
 Music.g4                              ANTLR grammar
-Scale.mus                             Sample program
+Scale.mus, Chords.mus                 Sample programs
 build.ps1                             Build-and-run script
 lib/                                  antlr and jasmin jars
 src/frontend/                         ANTLR-generated parser (created by build.ps1, not committed)
@@ -137,7 +161,7 @@ build/                                Generated .j and .class files (not committ
 ## Adding a new built-in function
 
 1. In the `CodeGenerator` constructor, add a line such as
-   `builtin("chord", "void", "int", "int");`
-2. Add a matching `public static void chord(int a, int b)` method to
+   `builtin("transpose", "void", "int", "int");`
+2. Add a matching `public static void transpose(int a, int b)` method to
    `src/runtime/MusicRuntime.java`.
 3. Run `.\build.ps1` again.
