@@ -94,7 +94,7 @@ main {
 - Types: `int`, `bool`, and `void` (return type only). `Pitch`, `Duration` and
   `Chord` are accepted as `int`-compatible type names (see Named constants).
   `Note`, `Measure`, `Track` and `Song` parse but are not implemented.
-- Statements: variable declaration, assignment, `if` / `else if` / `else`, `while`, `return`, function call
+- Statements: variable declaration, assignment, `if` / `else if` / `else`, `while`, `for`, `return`, function call
 - Operators: `+ - * / %`, `< <= > >= == !=`, `&& || !`, unary `-`
 - Comments: `// line` and `/* block */`
 
@@ -103,7 +103,7 @@ main {
 | Function | Meaning |
 |----------|---------|
 | `play(pitch, beats)` | Play a MIDI note (60 = middle C) for a number of beats |
-| `chord(root, quality, beats)` | Play all notes of a chord together. Quality codes 0 to 6: major, minor, dim, aug, dom7, maj7, min7 |
+| `chord(root, quality, beats)` | Play every note of a chord together (see the quality table below) |
 | `rest(beats)` | Silence for a number of beats |
 | `tempo(bpm)` | Set the tempo in beats per minute (default 120) |
 | `instrument(n)` | Set the General MIDI instrument, 0 to 127 (0 = piano) |
@@ -112,6 +112,19 @@ main {
 
 Each built-in also prints a line such as `play C4 (60) for 1 beat(s)`, so you
 can check the output when no sound device is available.
+
+Chord qualities (the second argument of `chord`). An unknown code plays a
+major chord. Notes are clamped to 0 to 127. `Chords.mus` is a sample program.
+
+| Code | Quality | Semitones above the root |
+|------|---------|--------------------------|
+| 0 | major | 0 4 7 |
+| 1 | minor | 0 3 7 |
+| 2 | diminished | 0 3 6 |
+| 3 | augmented | 0 4 8 |
+| 4 | dominant 7th | 0 4 7 10 |
+| 5 | major 7th | 0 4 7 11 |
+| 6 | minor 7th | 0 3 7 10 |
 
 ### Named constants
 
@@ -133,7 +146,7 @@ There are two kinds of value: `bool` and `int`. `Pitch`, `Duration`, `Chord`
 and the other music types count as `int`. The compiler reports an error for:
 
 - an initializer, assignment, `return` value or call argument of the wrong kind
-- an `if` or `while` condition that is not `bool`
+- an `if`, `while`, or `for` condition that is not `bool`
 - arithmetic (`+ - * / %`) or comparison (`< <= > >=`) on a `bool`
 - `!`, `&&` or `||` on an `int`
 - `==` or `!=` between an `int` and a `bool`

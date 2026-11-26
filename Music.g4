@@ -36,6 +36,7 @@ stmt      : varDecl
           | assignStmt
           | ifStmt
           | whileStmt
+          | forStmt
           | returnStmt
           | callStmt
           ;
@@ -44,6 +45,8 @@ varDecl    : type ID ('=' expr)? ';' ;
 assignStmt : ID '=' expr ';' ;
 ifStmt     : 'if' '(' expr ')' block ('else' (ifStmt | block))? ;
 whileStmt  : 'while' '(' expr ')' block ;
+forStmt    : 'for' '(' forInit expr ';' ID '=' expr ')' block ;
+forInit    : varDecl | assignStmt ;
 returnStmt : 'return' expr? ';' ;
 callStmt   : call ';' ;
 
