@@ -3,11 +3,29 @@ grammar Music;
 // ---------- Parser rules ----------
 
 // A file starts with: compose <Name>   (Name becomes the output class)
-program   : 'compose' ID funcDecl* mainBlock EOF ;
+program   : 'compose' ID topLevelDecl* mainBlock EOF ;
 
+topLevelDecl : funcDecl | songDecl;
 funcDecl  : 'func' retType ID '(' paramList? ')' block ;
 retType   : type | 'void' ;
-type      : 'int' | 'bool' ;
+type      : 'int' 
+          | 'bool'
+          | 'Pitch'
+          | 'Duration'
+          | 'Note'
+          | 'Chord'
+          | 'Measure'
+          | 'Track'
+          | 'Song';
+
+songDecl : 'song' ID '{' songMember* '}';
+// Song members and track events are built-in calls: tempo(120); play(60, 1); chord(60, 0, 2); rest(1);
+songMember : callStmt | trackDecl ;
+trackDecl : 'track' ID '{' callStmt* '}';
+
+// Named constants such as Pitch.C4, Chord.Major, Duration.Quarter
+enumLit : ('Pitch' | 'Chord' | 'Duration') '.' ID ;
+
 paramList : param (',' param)* ;
 param     : type ID ;
 
@@ -47,6 +65,7 @@ expr
   | expr '&&' expr                           # And
   | expr '||' expr                           # Or
   | call                                     # CallExpr
+  | enumLit                                  # EnumExpr
   | ID                                       # Var
   | INT                                      # IntLit
   | ('true' | 'false')                       # BoolLit

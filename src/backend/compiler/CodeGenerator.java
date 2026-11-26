@@ -40,6 +40,7 @@ public class CodeGenerator extends MusicBaseVisitor<Void>
     private final Emitter emitter = new Emitter();
     private final Map<String, FuncSig> functions = new LinkedHashMap<>();
     private final List<String> errors = new ArrayList<>();
+    private final Map<String, FuncDeclContext> funcDecls = new java.util.HashMap<>();
 
     private String className;
     private Deque<Symtab> scopes;       // innermost scope first
@@ -116,13 +117,18 @@ public class CodeGenerator extends MusicBaseVisitor<Void>
         className = ctx.ID().getText();
 
         // Pass 1: record every function signature so calls can come before declarations.
-        for (FuncDeclContext f : ctx.funcDecl()) {
-            String name = f.ID().getText();
-            if (functions.containsKey(name)) { error(f, "function '" + name + "' already defined"); continue; }
-            List<String> params = new ArrayList<>();
-            if (f.paramList() != null)
-                for (ParamContext p : f.paramList().param()) params.add(p.type().getText());
-            functions.put(name, new FuncSig(name, className, params, f.retType().getText()));
+        for (TopLevelDeclContext t : ctx.topLevelDecl()) {
+            FuncDeclContext f = t.funcDecl();
+            if (f != null)
+            {
+                String name = f.ID().getText();
+                if (functions.containsKey(name)) { error(f, "function '" + name + "' already defined"); continue; }
+                funcDecls.put(name, f);
+                List<String> params = new ArrayList<>();
+                if (f.paramList() != null)
+                    for (ParamContext p : f.paramList().param()) params.add(p.type().getText());
+                functions.put(name, new FuncSig(name, className, params, f.retType().getText()));
+            }
         }
 
         emitter.directive(".class public " + className);
@@ -133,7 +139,11 @@ public class CodeGenerator extends MusicBaseVisitor<Void>
         emitter.emit("return");
         emitter.endMethod(1, 1);
 
-        for (FuncDeclContext f : ctx.funcDecl()) visit(f);
+        for (TopLevelDeclContext decl : ctx.topLevelDecl()) {
+            FuncDeclContext function = decl.funcDecl();
+            if (function != null) visit(function);
+            else error(decl, "song declarations are not supported yet");
+        }
         visit(ctx.mainBlock());
         return null;
     }
@@ -142,7 +152,8 @@ public class CodeGenerator extends MusicBaseVisitor<Void>
     public Void visitFuncDecl(FuncDeclContext ctx)
     {
         FuncSig sig = functions.get(ctx.ID().getText());
-        if (sig == null || !sig.owner.equals(className)) return null;
+        // Skip builtins and duplicate declarations (already reported in pass 1).
+        if (sig == null || !sig.owner.equals(className) || funcDecls.get(sig.name) != ctx) return null;
         currentFunc = sig;
         startScopes(0);
 
@@ -230,7 +241,10 @@ public class CodeGenerator extends MusicBaseVisitor<Void>
     @Override
     public Void visitVarDecl(VarDeclContext ctx)
     {
-        if (ctx.expr() != null) visit(ctx.expr()); else emitter.emit("iconst_0");
+        if (ctx.expr() != null) {
+            expect(ctx, ctx.expr(), kind(ctx.type().getText()), "initializer of '" + ctx.ID().getText() + "'");
+            visit(ctx.expr());
+        } else emitter.emit("iconst_0");
         SymtabEntry e = declare(ctx, ctx.ID().getText(), ctx.type().getText(), Kind.VARIABLE);
         if (e != null) emitter.emit("istore " + slot(e)); else emitter.emit("pop");
         return null;
@@ -241,7 +255,10 @@ public class CodeGenerator extends MusicBaseVisitor<Void>
     {
         visit(ctx.expr());
         SymtabEntry e = lookupVar(ctx, ctx.ID().getText());
-        if (e != null) emitter.emit("istore " + slot(e)); else emitter.emit("pop");
+        if (e != null) {
+            expect(ctx, ctx.expr(), kind(types.getOrDefault(e, "int")), "assignment to '" + ctx.ID().getText() + "'");
+            emitter.emit("istore " + slot(e));
+        } else emitter.emit("pop");
         return null;
     }
 
@@ -249,6 +266,7 @@ public class CodeGenerator extends MusicBaseVisitor<Void>
     public Void visitIfStmt(IfStmtContext ctx)
     {
         String elseLabel = emitter.newLabel(), endLabel = emitter.newLabel();
+        expect(ctx, ctx.expr(), "bool", "if condition");
         visit(ctx.expr());
         emitter.emit("ifeq " + elseLabel);
         visit(ctx.block(0));
@@ -265,6 +283,7 @@ public class CodeGenerator extends MusicBaseVisitor<Void>
     {
         String top = emitter.newLabel(), exit = emitter.newLabel();
         emitter.label(top);
+        expect(ctx, ctx.expr(), "bool", "while condition");
         visit(ctx.expr());
         emitter.emit("ifeq " + exit);
         visit(ctx.block());
@@ -281,12 +300,17 @@ public class CodeGenerator extends MusicBaseVisitor<Void>
         visit(ctx.forInit());
         String top = emitter.newLabel(), exit = emitter.newLabel();
         emitter.label(top);
+        expect(ctx, ctx.expr(0), "bool", "for condition");
         visit(ctx.expr(0));
         emitter.emit("ifeq " + exit);
         visit(ctx.block());
         visit(ctx.expr(1));
         SymtabEntry e = lookupVar(ctx, ctx.ID().getText());
-        if (e != null) emitter.emit("istore " + slot(e)); else emitter.emit("pop");
+        if (e != null) {
+            expect(ctx, ctx.expr(1), kind(types.getOrDefault(e, "int")),
+                   "assignment to '" + ctx.ID().getText() + "'");
+            emitter.emit("istore " + slot(e));
+        } else emitter.emit("pop");
         emitter.emit("goto " + top);
         emitter.label(exit);
         nextSlot = saved;
@@ -298,8 +322,11 @@ public class CodeGenerator extends MusicBaseVisitor<Void>
     public Void visitReturnStmt(ReturnStmtContext ctx)
     {
         boolean isVoid = currentFunc.ret.equals("void");
+        // An early return in main must still close the synthesizer.
+        if (currentFunc.name.equals("main")) emitter.emit("invokestatic " + RUNTIME + "/finish()V");
         if (ctx.expr() != null) {
             if (isVoid) error(ctx, "void function cannot return a value");
+            else expect(ctx, ctx.expr(), kind(currentFunc.ret), "return value");
             visit(ctx.expr());
             emitter.emit(isVoid ? "return" : "ireturn");
         } else {
@@ -321,17 +348,63 @@ public class CodeGenerator extends MusicBaseVisitor<Void>
     private FuncSig emitCall(CallContext ctx)
     {
         String name = ctx.ID().getText();
-        FuncSig sig = functions.get(name);
         List<ExprContext> args = ctx.argList() == null ? List.of() : ctx.argList().expr();
+        return emitInvocation(ctx, name, args);
+    }
+
+    private FuncSig emitInvocation(ParserRuleContext ctx, String name, List<ExprContext> args)
+    {
+        FuncSig sig = functions.get(name);
         if (sig == null) { error(ctx, "undefined function '" + name + "'"); return null; }
         if (args.size() != sig.params.size()) {
             error(ctx, "'" + name + "' expects " + sig.params.size()
                        + " argument(s), got " + args.size());
             return null;
         }
+        for (int i = 0; i < args.size(); i++)
+            expect(args.get(i), args.get(i), kind(sig.params.get(i)), "argument " + (i + 1) + " of '" + name + "'");
         for (ExprContext a : args) visit(a);
         emitter.emit("invokestatic " + sig.owner + "/" + sig.name + sig.descriptor());
         return sig;
+    }
+
+    // ---------------- type checking ----------------
+    // Two kinds: "bool" and "int". Pitch, Duration, Chord and the other music
+    // types are int-compatible. "?" means unknown (an error was already reported).
+
+    private static String kind(String type)
+    {
+        return type.equals("bool") || type.equals("void") ? type : "int";
+    }
+
+    /** Type of an expression, computed without emitting code or reporting errors. */
+    private String typeOf(ExprContext e)
+    {
+        if (e instanceof ParensContext p) return typeOf(p.expr());
+        if (e instanceof UnaryContext u) return u.op.getText().equals("!") ? "bool" : "int";
+        if (e instanceof MulDivContext || e instanceof AddSubContext
+            || e instanceof IntLitContext || e instanceof EnumExprContext) return "int";
+        if (e instanceof RelationalContext || e instanceof EqualityContext
+            || e instanceof AndContext || e instanceof OrContext || e instanceof BoolLitContext) return "bool";
+        if (e instanceof CallExprContext c) {
+            FuncSig sig = functions.get(c.call().ID().getText());
+            return sig == null || sig.ret.equals("void") ? "?" : kind(sig.ret);
+        }
+        if (e instanceof VarContext v) {
+            for (Symtab s : scopes) {
+                SymtabEntry entry = s.lookup(v.ID().getText());
+                if (entry != null) return kind(types.getOrDefault(entry, "int"));
+            }
+        }
+        return "?";
+    }
+
+    /** Report an error unless e has the wanted type. */
+    private void expect(ParserRuleContext at, ExprContext e, String want, String what)
+    {
+        String got = typeOf(e);
+        if (!got.equals("?") && !got.equals(want))
+            error(at, "type mismatch in " + what + ": expected " + want + ", got " + got);
     }
 
     // ---------------- expressions ----------------
@@ -342,7 +415,44 @@ public class CodeGenerator extends MusicBaseVisitor<Void>
     @Override
     public Void visitIntLit(IntLitContext ctx)
     {
-        emitter.loadInt(Integer.parseInt(ctx.INT().getText()));
+        try { emitter.loadInt(Integer.parseInt(ctx.INT().getText())); }
+        catch (NumberFormatException e) {
+            error(ctx, "integer literal too large: " + ctx.INT().getText());
+            emitter.emit("iconst_0");
+        }
+        return null;
+    }
+    
+    //CHORD_QUALITIES must match the order of the CHORDS array in MusicRuntime.java, and DURATIONS must match the order of the durations in MusicRuntime.java.
+    private static final String[] CHORD_QUALITIES = {"Major", "Minor", "Dim", "Aug", "Dom7", "Maj7", "Min7"};
+    private static final String[] DURATIONS = {"Whole", "Half", "Quarter"};      // 4, 2, 1 beats
+    private static final java.util.regex.Pattern NOTE_NAME =
+        java.util.regex.Pattern.compile("([A-G])(s|b)?(\\d)");                   // C4, Fs3, Bb2
+
+    /** Pitch.C4 / Chord.Major / Duration.Quarter compile to int constants. */
+    @Override
+    public Void visitEnumExpr(EnumExprContext ctx)
+    {
+        String type = ctx.enumLit().getChild(0).getText(), name = ctx.enumLit().ID().getText();
+        int value = -1;
+        switch (type) {
+            case "Chord" -> value = java.util.Arrays.asList(CHORD_QUALITIES).indexOf(name);
+            case "Duration" -> {
+                int i = java.util.Arrays.asList(DURATIONS).indexOf(name);
+                value = i < 0 ? -1 : 4 >> i;
+            }
+            default -> {
+                var m = NOTE_NAME.matcher(name);
+                if (m.matches()) {
+                    int semitone = "C D EF G A B".indexOf(m.group(1));
+                    if (m.group(2) != null) semitone += m.group(2).equals("s") ? 1 : -1;
+                    value = 12 * (Integer.parseInt(m.group(3)) + 1) + semitone;   // C4 = 60
+                    if (value < 0 || value > 127) value = -1;
+                }
+            }
+        }
+        if (value < 0) { error(ctx, "unknown " + type + " constant '" + name + "'"); value = 0; }
+        emitter.loadInt(value);
         return null;
     }
 
@@ -376,15 +486,24 @@ public class CodeGenerator extends MusicBaseVisitor<Void>
     @Override
     public Void visitUnary(UnaryContext ctx)
     {
+        boolean not = ctx.op.getText().equals("!");
+        expect(ctx, ctx.expr(), not ? "bool" : "int", "operand of '" + ctx.op.getText() + "'");
         visit(ctx.expr());
-        if (ctx.op.getText().equals("-")) emitter.emit("ineg");
-        else { emitter.emit("iconst_1"); emitter.emit("ixor"); }
+        if (!not) { emitter.emit("ineg"); return null; }
+        String isZero = emitter.newLabel(), end = emitter.newLabel();
+        emitter.emit("ifeq " + isZero);
+        emitter.emit("iconst_0");
+        emitter.emit("goto " + end);
+        emitter.label(isZero);
+        emitter.emit("iconst_1");
+        emitter.label(end);
         return null;
     }
 
     @Override
     public Void visitMulDiv(MulDivContext ctx)
     {
+        checkOperands(ctx, ctx.expr(0), ctx.expr(1), "int");
         visit(ctx.expr(0)); visit(ctx.expr(1));
         switch (ctx.op.getText()) {
             case "*" -> emitter.emit("imul");
@@ -397,6 +516,7 @@ public class CodeGenerator extends MusicBaseVisitor<Void>
     @Override
     public Void visitAddSub(AddSubContext ctx)
     {
+        checkOperands(ctx, ctx.expr(0), ctx.expr(1), "int");
         visit(ctx.expr(0)); visit(ctx.expr(1));
         emitter.emit(ctx.op.getText().equals("+") ? "iadd" : "isub");
         return null;
@@ -405,6 +525,7 @@ public class CodeGenerator extends MusicBaseVisitor<Void>
     @Override
     public Void visitRelational(RelationalContext ctx)
     {
+        checkOperands(ctx, ctx.expr(0), ctx.expr(1), "int");
         String jump = switch (ctx.op.getText()) {
             case "<"  -> "if_icmplt";
             case "<=" -> "if_icmple";
@@ -418,8 +539,19 @@ public class CodeGenerator extends MusicBaseVisitor<Void>
     @Override
     public Void visitEquality(EqualityContext ctx)
     {
+        String l = typeOf(ctx.expr(0)), r = typeOf(ctx.expr(1));
+        if (!l.equals("?") && !r.equals("?") && !l.equals(r))
+            error(ctx, "type mismatch in '" + ctx.op.getText() + "': " + l + " vs " + r);
         compare(ctx.expr(0), ctx.expr(1), ctx.op.getText().equals("==") ? "if_icmpeq" : "if_icmpne");
         return null;
+    }
+
+    /** Both operands must have the wanted type. */
+    private void checkOperands(ParserRuleContext ctx, ExprContext left, ExprContext right, String want)
+    {
+        String op = ctx.getChild(1).getText();
+        expect(ctx, left, want, "left operand of '" + op + "'");
+        expect(ctx, right, want, "right operand of '" + op + "'");
     }
 
     /** Push 1 if (left jump right) holds, else 0. */
@@ -438,6 +570,7 @@ public class CodeGenerator extends MusicBaseVisitor<Void>
     @Override
     public Void visitAnd(AndContext ctx)
     {
+        checkOperands(ctx, ctx.expr(0), ctx.expr(1), "bool");
         String isFalse = emitter.newLabel(), end = emitter.newLabel();
         visit(ctx.expr(0));
         emitter.emit("ifeq " + isFalse);     // short-circuit
@@ -454,6 +587,7 @@ public class CodeGenerator extends MusicBaseVisitor<Void>
     @Override
     public Void visitOr(OrContext ctx)
     {
+        checkOperands(ctx, ctx.expr(0), ctx.expr(1), "bool");
         String isTrue = emitter.newLabel(), end = emitter.newLabel();
         visit(ctx.expr(0));
         emitter.emit("ifne " + isTrue);      // short-circuit
