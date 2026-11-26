@@ -274,6 +274,27 @@ public class CodeGenerator extends MusicBaseVisitor<Void>
     }
 
     @Override
+    public Void visitForStmt(ForStmtContext ctx)
+    {
+        scopes.push(newScope(currentFunc.name + " for (line " + ctx.getStart().getLine() + ")"));
+        int saved = nextSlot;
+        visit(ctx.forInit());
+        String top = emitter.newLabel(), exit = emitter.newLabel();
+        emitter.label(top);
+        visit(ctx.expr(0));
+        emitter.emit("ifeq " + exit);
+        visit(ctx.block());
+        visit(ctx.expr(1));
+        SymtabEntry e = lookupVar(ctx, ctx.ID().getText());
+        if (e != null) emitter.emit("istore " + slot(e)); else emitter.emit("pop");
+        emitter.emit("goto " + top);
+        emitter.label(exit);
+        nextSlot = saved;
+        scopes.pop();
+        return null;
+    }
+
+    @Override
     public Void visitReturnStmt(ReturnStmtContext ctx)
     {
         boolean isVoid = currentFunc.ret.equals("void");
