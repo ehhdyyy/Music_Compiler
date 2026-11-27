@@ -110,8 +110,9 @@ main {
 | `volume(v)` | Set the note velocity, 0 to 127 (default 90) |
 | `print(value)` | Print an integer |
 
-Each built-in also prints a line such as `play C4 (60) for 1 beat(s)`, so you
-can check the output when no sound device is available.
+Each built-in also prints a line such as `play C4 (60) for 1 beat(s)  t=0ms`,
+so you can check the output when no sound device is available. The `t=` value
+is the milliseconds since the first note, and it is a debug aid.
 
 Chord qualities (the second argument of `chord`). An unknown code plays a
 major chord. Notes are clamped to 0 to 127. `Chords.mus` is a sample program.
@@ -172,11 +173,18 @@ Java's built-in synthesizer and waits for the length of the note. The
 `.class` file is not self-contained: `build\classes` must be on the classpath
 when it runs. Playback is live, so no `.mid` file is written.
 
+On the first note, `init()` opens the synthesizer and waits until its audio
+clock has advanced (the `start + ...` value in the `while` loop, in
+microseconds, with a 5 second limit), so the first notes are not lost. Notes
+end on an absolute clock, so timing does not drift over a long song. After you
+edit `MusicRuntime.java`, rebuild with `.\build.ps1` so `build\classes` is
+updated.
+
 ## Project layout
 
 ```
 Music.g4                              ANTLR grammar
-Scale.mus, Chords.mus, T.mus          Sample programs
+Scale.mus, Chords.mus, Jingle.mus, T.mus   Sample programs
 Bad.mus                               Programs with errors (should not compile)
 build.ps1                             Build-and-run script
 lib/                                  antlr and jasmin jars

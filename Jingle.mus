@@ -1,0 +1,48 @@
+compose Jingle
+
+// Jingle Bells in C major. 1 beat = one eighth note, so tempo 240 sounds like
+// a quarter note at 120 bpm. Lengths: eighth 1, quarter 2, dotted quarter 3,
+// half 4, whole 8.
+
+func void verse() {
+    // Dashing through the snow
+    play(Pitch.G3, 2); play(Pitch.E4, 2); play(Pitch.D4, 2); play(Pitch.C4, 2);
+    play(Pitch.G3, 6); rest(2);
+    // In a one-horse open sleigh
+    play(Pitch.G3, 1); play(Pitch.G3, 1); play(Pitch.G3, 2); play(Pitch.E4, 2);
+    play(Pitch.D4, 2); play(Pitch.C4, 2); play(Pitch.A3, 8);
+    // O'er the fields we go
+    play(Pitch.A3, 2); play(Pitch.F4, 2); play(Pitch.E4, 2); play(Pitch.D4, 2);
+    play(Pitch.B3, 6); rest(2);
+    // Laughing all the way
+    play(Pitch.G4, 2); play(Pitch.G4, 2); play(Pitch.F4, 2); play(Pitch.D4, 2);
+    play(Pitch.E4, 4);
+}
+
+// "Jingle bells, jingle bells, jingle all the way"
+func void jingle() {
+    play(Pitch.E4, 2); play(Pitch.E4, 2); play(Pitch.E4, 4);
+    play(Pitch.E4, 2); play(Pitch.E4, 2); play(Pitch.E4, 4);
+    play(Pitch.E4, 2); play(Pitch.G4, 2); play(Pitch.C4, 3); play(Pitch.D4, 1);
+    play(Pitch.E4, 8);
+}
+
+main {
+    tempo(240);
+    instrument(0);
+
+    verse();
+
+    jingle();
+    // "Oh what fun it is to ride in a one-horse open sleigh"
+    play(Pitch.F4, 2); play(Pitch.F4, 2); play(Pitch.F4, 3); play(Pitch.F4, 1);
+    play(Pitch.F4, 2); play(Pitch.E4, 2); play(Pitch.E4, 2); play(Pitch.E4, 1); play(Pitch.E4, 1);
+    play(Pitch.E4, 2); play(Pitch.D4, 2); play(Pitch.D4, 2); play(Pitch.E4, 2);
+    play(Pitch.D4, 4); play(Pitch.G4, 4);
+
+    jingle();
+    play(Pitch.F4, 2); play(Pitch.F4, 2); play(Pitch.F4, 3); play(Pitch.F4, 1);
+    play(Pitch.F4, 2); play(Pitch.E4, 2); play(Pitch.E4, 2); play(Pitch.E4, 1); play(Pitch.E4, 1);
+    play(Pitch.G4, 2); play(Pitch.G4, 2); play(Pitch.F4, 2); play(Pitch.D4, 2);
+    chord(Pitch.C4, Chord.Major, 8);
+}

@@ -25,16 +25,36 @@ public class MusicRuntime
             synth = MidiSystem.getSynthesizer();
             synth.open();
             channel = synth.getChannels()[0];
+            // Ready signal: the synth's clock only advances once its audio line is consuming samples.
+            long start = synth.getMicrosecondPosition();
+            long giveUp = System.nanoTime() + 5_000_000_000L;
+            while (synth.getMicrosecondPosition() < start + 5_500_000 && System.nanoTime() < giveUp)
+                Thread.sleep(10);
         } catch (Exception e) {
             System.err.println("[MusicRuntime] No MIDI synthesizer, running silent: " + e.getMessage());
         }
     }
 
+    private static long deadline;   // nanoTime when the current note should end
+
+    private static long beatNanos(int beats) { return Math.max(0, beats) * 60_000_000_000L / bpm; }
+
+    // Sleep until an absolute deadline so println and sleep jitter don't accumulate as drift.
     private static void sleepBeats(int beats)
     {
-        try { Thread.sleep(Math.max(0, beats) * 60_000L / bpm); }
+        long now = System.nanoTime();
+        if (deadline < now) deadline = now;
+        deadline += beatNanos(beats);
+        sleepUntil(deadline);
+    }
+
+    private static void sleepUntil(long nanos)
+    {
+        long ms = (nanos - System.nanoTime()) / 1_000_000;
+        try { if (ms > 0) Thread.sleep(ms); }
         catch (InterruptedException ignored) {}
     }
+
 
     public static void tempo(int newBpm)
     {
@@ -42,11 +62,20 @@ public class MusicRuntime
         System.out.println("tempo " + bpm);
     }
 
+    private static long t0;
+
+    // Debug: ms since the first note/rest, to check that notes are sent on time. Remove when done.
+    private static String ts()
+    {
+        if (t0 == 0) t0 = System.nanoTime();
+        return "  t=" + (System.nanoTime() - t0) / 1_000_000 + "ms";
+    }
+
     public static void play(int pitch, int beats)
     {
         init();
         pitch = Math.max(0, Math.min(127, pitch));
-        System.out.println("play " + noteName(pitch) + " (" + pitch + ") for " + beats + " beat(s)");
+        System.out.println("play " + noteName(pitch) + " (" + pitch + ") for " + beats + " beat(s)" + ts());
         if (channel != null) channel.noteOn(pitch, velocity);
         sleepBeats(beats);
         if (channel != null) channel.noteOff(pitch);
@@ -78,7 +107,7 @@ public class MusicRuntime
         }
         root = Math.max(0, Math.min(127, root));
         System.out.println("chord " + noteName(root) + CHORD_NAMES[quality]
-                           + " [" + sb + "] for " + beats + " beat(s)");
+                           + " [" + sb + "] for " + beats + " beat(s)" + ts());
         if (channel != null) for (int n : notes) channel.noteOn(n, velocity);
         sleepBeats(beats);
         if (channel != null) for (int n : notes) channel.noteOff(n);
@@ -87,7 +116,7 @@ public class MusicRuntime
     public static void rest(int beats)
     {
         init();
-        System.out.println("rest " + beats + " beat(s)");
+        System.out.println("rest " + beats + " beat(s)" + ts());
         sleepBeats(beats);
     }
 

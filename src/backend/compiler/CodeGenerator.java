@@ -90,7 +90,7 @@ public class CodeGenerator extends MusicBaseVisitor<Void>
         builtin("chord",      "void", "int", "int", "int"); // chord(root, quality, beats)
         builtin("rest",       "void", "int");         // rest(beats)
         builtin("tempo",      "void", "int");         // tempo(bpm)
-        builtin("instrument", "void", "int");         // instrument(program 0-127)
+        builtin("instrument", "void", "int");         // instrument(program 0-127)  
         builtin("volume",     "void", "int");         // volume(velocity 0-127)
         builtin("print",      "void", "int");         // print(value)
     }
