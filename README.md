@@ -11,7 +11,7 @@ Scale.mus --ANTLR--> parse tree --CodeGenerator/Emitter--> Scale.j --Jasmin--> S
 ## Requirements
 
 - Java JDK 17 or newer (`java` and `javac` on your PATH)
-- Windows PowerShell
+- Windows PowerShell for `build.ps1`, or macOS Terminal/zsh (commands below)
 - `lib/antlr-4.13.2-complete.jar` and `lib/jasmin.jar` 
 
 ## Quick start
@@ -59,6 +59,32 @@ java -cp "build;build\classes" Scale
 `runtime.MusicRuntime`. On Windows the classpath separator is `;`. Keep the
 quotes.
 
+### macOS (Terminal/zsh)
+
+From the project root, run these commands to compile and play `Scale.mus`:
+
+| Step | Command | Output |
+|------|---------|--------|
+| 1. Generate the parser | `java -jar lib/antlr-4.13.2-complete.jar -visitor -no-listener -package frontend -Xexact-output-dir -o src/frontend Music.g4` | `src/frontend/Music*.java` |
+| 2. Create the classes directory | `mkdir -p build/classes` | `build/classes/` |
+| 3. Compile the compiler and runtime | `javac -cp lib/antlr-4.13.2-complete.jar -d build/classes $(find src -name '*.java')` | `build/classes/` |
+| 4. Compile the `.mus` file to Jasmin | `java -cp "lib/antlr-4.13.2-complete.jar:build/classes" backend.compiler.Compiler Scale.mus build` | `build/Scale.j` |
+| 5. Assemble with Jasmin | `java -jar lib/jasmin.jar -d build build/Scale.j` | `build/Scale.class` |
+| 6. Run the program | `java -cp "build:build/classes" Scale` | plays the music |
+
+To compile a different `.mus` file, replace `Scale.mus` with its path and use
+the class name from its `compose` declaration in the final two commands. To
+print the symbol table, add `-symtab` before the source file in the compiler
+command, for example:
+
+```sh
+java -cp "lib/antlr-4.13.2-complete.jar:build/classes" backend.compiler.Compiler -symtab Scale.mus build
+```
+
+On macOS, use `/` in paths and `:` between Java classpath entries. The
+`build.ps1` script and the Windows commands above use PowerShell path syntax
+and `;` as the classpath separator.
+
 ## Testing only the grammar
 
 To check that a `.mus` file parses, without generating code:
@@ -67,6 +93,15 @@ To check that a `.mus` file parses, without generating code:
 java -jar lib\antlr-4.13.2-complete.jar -o gen Music.g4
 javac -cp lib\antlr-4.13.2-complete.jar -d gen gen\*.java
 java -cp "lib\antlr-4.13.2-complete.jar;gen" org.antlr.v4.gui.TestRig Music program -tree Scale.mus
+```
+
+On macOS, use these equivalent commands:
+
+```sh
+mkdir -p gen
+java -jar lib/antlr-4.13.2-complete.jar -o gen Music.g4
+javac -cp lib/antlr-4.13.2-complete.jar -d gen $(find gen -name '*.java')
+java -cp "lib/antlr-4.13.2-complete.jar:gen" org.antlr.v4.gui.TestRig Music program -tree Scale.mus
 ```
 
 Replace `-tree` with `-gui` to see the tree in a window, or with `-tokens` to
