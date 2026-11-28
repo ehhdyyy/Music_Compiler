@@ -1,6 +1,6 @@
-# Usage: ./build.ps1 [file.mus]      (default: Scale.mus)
+# Usage: ./build.ps1 [file.mus](on Linux/MacOS)  or .\build.ps1 (on Windows) (default: Scale.mus)
 # 1. ANTLR -> src/frontend         2. javac -> build/classes
-# 3. Compiler -> build/<Name>.j     4. Jasmin -> build/<Name>.class   5. run it
+# 3. Compiler -> build/<Name>.j     4. Jasmin -> b./uild/<Name>.class   5. run it
 #        ./build.ps1 Scale.mus -Symtab   (also print the symbol table)
 param([string]$Source = "Scale.mus", [switch]$Symtab)
 $ErrorActionPreference = "Stop"
