@@ -72,18 +72,6 @@ From the project root, run these commands to compile and play `Scale.mus`:
 | 5. Assemble with Jasmin | `java -jar lib/jasmin.jar -d build build/Scale.j` | `build/Scale.class` |
 | 6. Run the program | `java -cp "build:build/classes" Scale` | plays the music |
 
-To compile a different `.mus` file, replace `Scale.mus` with its path and use
-the class name from its `compose` declaration in the final two commands. To
-print the symbol table, add `-symtab` before the source file in the compiler
-command, for example:
-
-```sh
-java -cp "lib/antlr-4.13.2-complete.jar:build/classes" backend.compiler.Compiler -symtab Scale.mus build
-```
-
-On macOS, use `/` in paths and `:` between Java classpath entries. The
-`build.ps1` script and the Windows commands above use PowerShell path syntax
-and `;` as the classpath separator.
 
 ## Testing only the grammar
 
