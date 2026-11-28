@@ -19,21 +19,21 @@ Scale.mus --ANTLR--> parse tree --CodeGenerator/Emitter--> Scale.j --Jasmin--> S
 From the project root in PowerShell:
 
 ```powershell
-.\build.ps1                 # compiles and plays Scale.mus
-.\build.ps1 MySong.mus      # compiles and plays any other .mus file
+.\build.ps1                 # compiles and plays Scale.mus or ./build.ps1 (for Linux/MacOS)
+.\build.ps1 MySong.mus      # compiles and plays any other .mus file ./build.ps1 MySong.mus (for Linux/MacOS)
 ```
 
 To also print the symbol table (functions, and every scope's variables with
 kind, type, JVM slot, and declaration line):
 
 ```powershell
-.\build.ps1 Scale.mus -Symtab
+.\build.ps1 Scale.mus -Symtab # ./build.ps1 Scale.mus -Symtab (for Linux/MacOS)
 ```
 
 If PowerShell blocks the script ("running scripts is disabled"), run it like this:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\build.ps1 Scale.mus
+powershell -ExecutionPolicy Bypass -File .\build.ps1 Scale.mus # pwsh ... ./build.ps1 Scale.mus (for Linux/MacOS)
 ```
 
 ## What build.ps1 does
